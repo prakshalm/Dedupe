@@ -33,7 +33,7 @@ def build_vectorizer(
     clean: pd.Series,
     analyzer: str = 'char', 
     ngram_range: Tuple[int, int] = (1, 4), 
-    n_neighbors: int = 1, 
+    n_neighbors: int = 2, 
     **kwargs
     ) -> Tuple:
     # Create vectorizer
@@ -49,17 +49,18 @@ def tfidf_nn(
     messy, 
     clean,
     user_id_master:pd.Series, 
-    n_neighbors = 1, 
+    n_neighbors = 2, 
     **kwargs
     ):
     # Fit clean data and transform messy data
     vectorizer, nbrs = build_vectorizer(clean, n_neighbors = n_neighbors, **kwargs)
     input_vec = vectorizer.transform(messy)
+    print((input_vec))
     # output_vec=vectorizer.transform(clean)
     # Determine best possible matches
     distances, indices = nbrs.kneighbors(input_vec, n_neighbors = n_neighbors)
     nearest_values = np.array(clean)[indices]
-    user_id=np.array(user_id_master)[indices]    
+    user_id=np.array(user_id_master)[indices]
     
     return nearest_values, distances,user_id
 
@@ -102,7 +103,6 @@ def fuzzy_tf_idf(
     column: str,
     clean: pd.Series,
     user_id_master:pd.Series,
-    mapping_df: pd.DataFrame,
     col: str,
     analyzer: str = 'char',
     ngram_range: Tuple[int, int] = (1, 3)
@@ -129,12 +129,12 @@ def get_data_cmdb(query):
     return df
 
 
-data_df=get_data_cmdb("""Select  concat_ws(', ',cx_lat, cx_lng) as cx_cordinates, cx_formatted_address,user_id from orders where created_by_type = 'msite' and created_at >= now() - interval '1 days' ;""")
+data_df=get_data_cmdb("""Select  concat_ws(', ',cx_lat, cx_lng) as cx_cordinates, cx_formatted_address,user_id,created_at from orders where created_by_type = 'msite' and created_at>=now() - interval '1 days' """)
 data_df=data_df[data_df['cx_cordinates'].notna()]
 data_df.to_csv('./query.csv')
 data_df=pd.read_csv('./query.csv')
 
-user_info=get_data_cmdb("""Select concat_ws(', ',cx_lat, cx_lng) as cx_cordinates, cx_formatted_address,user_id from orders where created_by_type = 'msite' and created_at<((now()- interval '1 days') - interval '10 days') order by created_at desc;""" )
+user_info=get_data_cmdb("""Select  concat_ws(', ',cx_lat, cx_lng) as cx_cordinates, cx_formatted_address,user_id,created_at from orders where created_by_type = 'msite' and created_at<now() - interval '30 days' order by created_at desc """ )
 user_info = user_info[user_info['cx_cordinates'].notna()]
 # user_info.to_csv('./user_info.csv')
 user_info=pd.read_csv('./user_info.csv')
@@ -143,7 +143,6 @@ df_resLatLong = (data_df.pipe(fuzzy_tf_idf, # Function and messy data
                      column = 'cx_cordinates', # Messy column in data
                      clean = user_info['cx_cordinates'],# Master data (list)
                      user_id_master=user_info['user_id'], # user_ids Master data
-                     mapping_df = data_df, # Master data
                      col = 'Result') # Can be customized
             )
 
@@ -151,7 +150,6 @@ df_resAddress = (data_df.pipe(fuzzy_tf_idf, # Function and messy data
                     column = 'cx_formatted_address', # Messy column in data
                     clean = user_info['cx_formatted_address'], # Master data (list)
                     user_id_master=user_info['user_id'], # user_ids Master data
-                    mapping_df = data_df, # Master data
                     col = 'Result') # Can be customized
             )
 
@@ -169,4 +167,5 @@ df_resAddress.to_csv('./res_Address.csv')
 
 
 print(df_resLatLong)
+# print(df_resAddress)
 
