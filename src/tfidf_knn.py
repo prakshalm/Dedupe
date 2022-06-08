@@ -209,7 +209,7 @@ if __name__=="__main__":
     query_data=pd.read_csv('./query.csv',index_col=0)
 
     
-    
+    #For all user info in last 15 days
     user_info=get_data_cmdb("""Select  concat_ws(', ',cx_lat, cx_lng) as cx_cordinates, cx_formatted_address,user_id,created_at from orders where created_by_type = 'msite' and created_at<date_trunc('day', now() - interval '1 days')  and created_at>(date_trunc('day', now() - interval '1 days')- interval '15 days') """ )
     user_info = user_info[user_info['cx_cordinates'].notna()]
     user_info.to_csv('./user_info.csv')
