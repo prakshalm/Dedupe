@@ -1,3 +1,6 @@
+import json
+import ast
+from operator import index
 import time
 # Import module for data manipulation
 import pandas as pd
@@ -55,7 +58,6 @@ def tfidf_nn(
     # Fit clean data and transform messy data
     vectorizer, nbrs = build_vectorizer(clean, n_neighbors = n_neighbors, **kwargs)
     input_vec = vectorizer.transform(messy)
-    print((input_vec))
     # output_vec=vectorizer.transform(clean)
     # Determine best possible matches
     distances, indices = nbrs.kneighbors(input_vec, n_neighbors = n_neighbors)
@@ -108,8 +110,8 @@ def fuzzy_tf_idf(
     ngram_range: Tuple[int, int] = (1, 3)
     ) -> pd.Series:
     # Create vectorizer
-    messy_prep = df[column].dropna().reset_index(drop = True).astype(str)
-    messy = messy_prep.apply(preprocess_string)
+    messy = df[column].dropna().reset_index(drop = True).astype(str)
+    # messy = messy_prep.apply(preprocess_string)
     result = fuzzy_nn_match(messy = messy, clean = clean, column = column,user_id_master=user_id_master, col = col, n_neighbors = 1)
     # Map value from messy to clean
     return result
@@ -129,43 +131,54 @@ def get_data_cmdb(query):
     return df
 
 
-data_df=get_data_cmdb("""Select  concat_ws(', ',cx_lat, cx_lng) as cx_cordinates, cx_formatted_address,user_id,created_at from orders where created_by_type = 'msite' and created_at>=now() - interval '1 days' """)
-data_df=data_df[data_df['cx_cordinates'].notna()]
-data_df.to_csv('./query.csv')
-data_df=pd.read_csv('./query.csv')
 
-user_info=get_data_cmdb("""Select  concat_ws(', ',cx_lat, cx_lng) as cx_cordinates, cx_formatted_address,user_id,created_at from orders where created_by_type = 'msite' and created_at<now() - interval '30 days' order by created_at desc """ )
-user_info = user_info[user_info['cx_cordinates'].notna()]
+# data_df=get_data_cmdb("""Select  concat_ws(', ',o.cx_lat, o.cx_lng) as cx_cordinates,o.user_id,t.msite_address_info ,o.cx_formatted_address,o.created_at from orders o join user_addresses t on o.user_id=t.user_id where o.created_by_type = 'msite' and o.created_at<'2022-06-07 00:00:00' and o.created_at >='2022-06-06 00:00:00' and t.msite_address_info is not null """)
+# data_df=data_df[data_df['cx_cordinates'].notna()]
+# data_df.to_csv('./query.csv')
+data_df=pd.read_csv('./query.csv',index_col=0)
+
+# user_info=get_data_cmdb("""Select  concat_ws(', ',cx_lat, cx_lng) as cx_cordinates, cx_formatted_address,user_id,created_at from orders where created_by_type = 'msite' and created_at<'2022-06-06 00:00:00' and created_at >='2022-05-20 00:00:00' """ )
+# user_info = user_info[user_info['cx_cordinates'].notna()]
 # user_info.to_csv('./user_info.csv')
-user_info=pd.read_csv('./user_info.csv')
+user_info=pd.read_csv('./master.csv',index_col=0)
 
-df_resLatLong = (data_df.pipe(fuzzy_tf_idf, # Function and messy data
+data_latlong=data_df[data_df['msite_address_info']=="""{'enable_location': True, 'is_reverse_code': False, 'manually_pick_lat_lng': False}"""]
+data_latlong.reset_index(drop=True,inplace=True)
+
+data_address=data_df[data_df['msite_address_info']!="""{'enable_location': True, 'is_reverse_code': False, 'manually_pick_lat_lng': False}"""]
+data_address.reset_index(drop=True,inplace=True)
+
+df_resLatLong= (data_latlong.pipe(fuzzy_tf_idf, # Function and messy data
                      column = 'cx_cordinates', # Messy column in data
                      clean = user_info['cx_cordinates'],# Master data (list)
                      user_id_master=user_info['user_id'], # user_ids Master data
-                     col = 'Result') # Can be customized
+                     col = 'Result_latlong') # Can be customized
             )
+df_resLatLong=pd.concat([ data_latlong['user_id'],df_resLatLong], axis=1)
+# print(df_resLatLong)
 
-df_resAddress = (data_df.pipe(fuzzy_tf_idf, # Function and messy data
+df_resAddress = (data_latlong.pipe(fuzzy_tf_idf, # Function and messy data
                     column = 'cx_formatted_address', # Messy column in data
                     clean = user_info['cx_formatted_address'], # Master data (list)
                     user_id_master=user_info['user_id'], # user_ids Master data
-                    col = 'Result') # Can be customized
+                    col = 'Result_address') # Can be customized
             )
+df_resAddress=pd.concat([ data_latlong['user_id'],df_resAddress], axis=1)
+print(df_resAddress)
 
-#For Latlong
-df_resLatLong=pd.concat([ data_df['user_id'],df_resLatLong], axis=1)
-df_resLatLong = df_resLatLong[df_resLatLong['Ratio'] >= 80]  
-df_resLatLong=df_resLatLong.reset_index(drop=True)
-df_resLatLong.to_csv('./res_latLong.csv')
-
-#For Addresses
-df_resAddress=pd.concat([ data_df['user_id'],df_resAddress], axis=1)
-df_resAddress = df_resAddress[df_resAddress['Ratio'] >= 90]  
-df_resAddress=df_resAddress.reset_index(drop=True)
-df_resAddress.to_csv('./res_Address.csv')
+res= pd.merge(df_resLatLong, df_resAddress, how ='inner', on =['user_id'])
+res=res[res['Ratio_x'] >= 80].reset_index(drop=True)
+print(res)
 
 
-print(df_resLatLong)
-# print(df_resAddress)
+# #For Latlong
+# 
+
+# df_resAddress=pd.concat([ data_df['user_id'],df_resAddress], axis=1)
+
+# res= pd.merge(df_resLatLong, df_resAddress, how ='inner', on =['user_id'])
+# res = res[res['Ratio_y'] >= 80].reset_index(drop=True)
+# print(res)
+res.to_csv('./result_concat.csv')
+
 
