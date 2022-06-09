@@ -202,24 +202,27 @@ if __name__=="__main__":
     # user_info.to_csv('./user_info.csv')
     user_info=pd.read_csv('./master.csv',index_col=0)
 
-    if sys.argv[1]!='auto':
-        print('Searching user where location_enabled=True')
-        #For location enabled latlong    
-        # query_data_auto=get_data_cmdb("""Select  concat_ws(', ',o.cx_lat, o.cx_lng) as cx_cordinates,o.user_id,t.msite_address_info ,o.cx_formatted_address,o.created_at from orders o join user_addresses t on o.user_id=t.user_id where o.created_by_type = 'msite' and o.created_at>=date_trunc('day', now() - interval '1 days') and t.msite_address_info is not null """)
-        # query_data_auto=query_data_auto[query_data_auto['cx_cordinates'].notna()]
-        # query_data_auto.to_csv('./query.csv')
-        query_data_auto=pd.read_csv('./query.csv',index_col=0)
-        
-        res_auto=res_latLong_auto(query_data=query_data_auto,user_info=user_info)
-        print(res_auto)
+    if len(sys.argv)>1:
+        if sys.argv[1]!='auto':
+            print('Searching user where location_enabled=True')
+            
+            #For location enabled latlong    
+            query_data_auto=get_data_cmdb("""Select  concat_ws(', ',o.cx_lat, o.cx_lng) as cx_cordinates,o.user_id,t.msite_address_info ,o.cx_formatted_address,o.created_at from orders o join user_addresses t on o.user_id=t.user_id where o.created_by_type = 'msite' and o.created_at>=date_trunc('day', now() - interval '1 days') and t.msite_address_info is not null """)
+            query_data_auto=query_data_auto[query_data_auto['cx_cordinates'].notna()]
+            query_data_auto.to_csv('./query.csv')
+            query_data_auto=pd.read_csv('./query.csv',index_col=0)
+            
+            res_auto=res_latLong_auto(query_data=query_data_auto,user_info=user_info)
+            print(res_auto)
 
 
     else:
         print('Searching user for addresses')
+        
         #For all cases of latlong
-        # query_data=get_data_cmdb("""Select  concat_ws(', ',o.cx_lat, o.cx_lng) as cx_cordinates,o.user_id,t.msite_address_info ,o.cx_formatted_address,o.created_at from orders o join user_addresses t on o.user_id=t.user_id where o.created_by_type = 'msite' and o.created_at>=date_trunc('day', now() - interval '1 days') and t.msite_address_info is not null """)
-        # query_data=query_data[query_data['cx_cordinates'].notna()]
-        # query_data.to_csv('./query_all.csv')
+        query_data=get_data_cmdb("""Select  concat_ws(', ',o.cx_lat, o.cx_lng) as cx_cordinates,o.user_id,t.msite_address_info ,o.cx_formatted_address,o.created_at from orders o join user_addresses t on o.user_id=t.user_id where o.created_by_type = 'msite' and o.created_at>=date_trunc('day', now() - interval '1 days') and t.msite_address_info is not null """)
+        query_data=query_data[query_data['cx_cordinates'].notna()]
+        query_data.to_csv('./query_all.csv')
 
         query_data=pd.read_csv('./query_all.csv',index_col=0)
 
